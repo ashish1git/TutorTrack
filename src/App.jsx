@@ -1,265 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Plus, 
-  Calendar, 
-  IndianRupee, 
-  BookOpen, 
-  Settings, 
-  Trash2, 
-  Edit2, 
-  Search, 
-  TrendingUp, 
-  Filter,
-  Save,
-  X,
-  Copy,
-  Moon,
-  Sun,
-  AlertTriangle,
-  ExternalLink,
-  LogOut,
-  Lock,
-  User
+  Plus, Calendar, IndianRupee, BookOpen, Settings, 
+  Trash2, Edit2, Search, TrendingUp, Filter, Copy, 
+  Moon, Sun, AlertTriangle, LogOut 
 } from 'lucide-react';
-import { initializeApp } from 'firebase/app';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { 
-  getAuth, 
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot, 
-  serverTimestamp,
-  setDoc
+  collection, addDoc, updateDoc, deleteDoc, 
+  doc, onSnapshot, serverTimestamp, setDoc 
 } from 'firebase/firestore';
 
-/* ==========================================
-  🚀 YOUR FIREBASE CONFIGURATION
-  ==========================================
-*/
-const YOUR_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyC14UtaGopZtOtQUQP5iRma9oqGV21wETg",
-  authDomain: "tutortrack-b7360.firebaseapp.com",
-  projectId: "tutortrack-b7360",
-  storageBucket: "tutortrack-b7360.firebasestorage.app",
-  messagingSenderId: "379989040306",
-  appId: "1:379989040306:web:a8c7f0792ee96ca4d7fdab",
-  measurementId: "G-LEP4DH0V0F"
-};
+// --- LOCAL IMPORTS (Crucial for your local setup) ---
+import { auth, db, appId } from './firebase';
+import { formatCurrency, calculateDuration, formatDate } from './utils';
 
-/* --- INITIALIZATION LOGIC --- */
-const firebaseConfig = YOUR_FIREBASE_CONFIG;
-const appId = 'tutor-track-v1'; 
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-/* --- UTILITY FUNCTIONS --- */
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(amount);
-};
-
-const calculateDuration = (start, end) => {
-  if (!start || !end) return 0;
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
-  const startDate = new Date(0, 0, 0, startH, startM, 0);
-  const endDate = new Date(0, 0, 0, endH, endM, 0);
-  let diff = endDate.getTime() - startDate.getTime();
-  if (diff < 0) return 0; // Invalid time range
-  return diff / 1000 / 60 / 60; // Hours
-};
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short'
-  });
-};
-
-/* --- COMPONENTS --- */
-
-// 1. Stats Card
-const StatsCard = ({ title, value, subtext, icon: Icon, colorClass, darkColorClass }) => (
-  <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-start justify-between hover:shadow-md transition-all duration-300">
-    <div>
-      <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{title}</p>
-      <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{value}</h3>
-      {subtext && <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{subtext}</p>}
-    </div>
-    <div className={`p-3 rounded-xl ${colorClass} ${darkColorClass}`}>
-      <Icon size={24} />
-    </div>
-  </div>
-);
-
-// 2. Simple Bar Chart
-const EarningsChart = ({ data }) => {
-  const maxVal = Math.max(...data.map(d => d.amount), 100); 
-  
-  return (
-    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 transition-colors">
-      <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-6 flex items-center">
-        <TrendingUp size={20} className="mr-2 text-indigo-600 dark:text-indigo-400" />
-        Weekly Overview
-      </h3>
-      <div className="flex items-end justify-between h-40 gap-2 overflow-x-auto pb-2">
-        {data.map((day, idx) => {
-          const heightPercent = (day.amount / maxVal) * 100;
-          return (
-            <div key={idx} className="flex flex-col items-center flex-1 group min-w-[30px]">
-               <div className="relative w-full flex justify-center h-full items-end">
-                  <span className="opacity-0 group-hover:opacity-100 absolute -top-8 text-xs font-bold bg-slate-800 dark:bg-slate-700 text-white px-2 py-1 rounded transition-opacity whitespace-nowrap z-10 border border-slate-700 dark:border-slate-600">
-                    ₹{day.amount}
-                  </span>
-                  <div 
-                    className="w-full max-w-[24px] bg-indigo-100 dark:bg-slate-700 hover:bg-indigo-500 dark:hover:bg-indigo-500 rounded-t-md transition-all duration-500 ease-out"
-                    style={{ height: `${Math.max(heightPercent, 5)}%` }} 
-                  ></div>
-               </div>
-              <span className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 mt-2 font-medium">{day.label}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// 3. Modal
-const Modal = ({ isOpen, onClose, title, children }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
-        <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white">{title}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="p-5 overflow-y-auto">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* --- LOGIN COMPONENT --- */
-const LoginScreen = ({ onLogin }) => {
-  const [username, setUsername] = useState('23106031');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    const email = `${username}@tutortrack.com`;
-
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      console.error(err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setError('Invalid username or password.');
-      } else {
-        setError(`Login failed: ${err.message}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 transition-colors">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="bg-indigo-600 p-8 text-center">
-          <div className="w-16 h-16 bg-white/20 rounded-2xl mx-auto flex items-center justify-center backdrop-blur-sm mb-4">
-             <BookOpen className="text-white" size={32} />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
-          <p className="text-indigo-100 mt-2 text-sm">Sign in to manage your teaching sessions</p>
-        </div>
-        
-        <div className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
-                <AlertTriangle size={16} />
-                {error}
-              </div>
-            )}
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="text" 
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors text-base"
-                  placeholder="Enter username"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors text-base"
-                  placeholder="Enter password"
-                  required
-                />
-              </div>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2 text-base"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
-        </div>
-      </div>
-      <p className="mt-8 text-xs text-slate-400 text-center">
-        TutorTrack v2.0 • Secured by Firebase
-      </p>
-    </div>
-  );
-};
-
-/* --- MAIN APP COMPONENT --- */
+// Import the components you created in the 'components' folder
+import LoginScreen from './components/LoginScreen';
+import StatsCard from './components/StatsCard';
+import EarningsChart from './components/EarningsChart';
+import Modal from './components/Modal';
+import SessionForm from './components/SessionForm';
+import RateSettings from './components/RateSettings';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -313,7 +74,7 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
-        setLoading(false); // Stop loading if not logged in so we show LoginScreen
+        setLoading(false); 
       }
     });
     return () => unsubscribe();
@@ -365,7 +126,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      setSessions([]); // Clear local data
+      setSessions([]); 
     } catch(err) {
       console.error("Logout failed", err);
     }
@@ -523,6 +284,9 @@ export default function App() {
   /* --- RENDER --- */
   
   if (!user) {
+    // In local version, 'auth' is imported from './firebase' inside LoginScreen, 
+    // or passed as prop depending on how you set up LoginScreen. 
+    // Since we exported 'auth' in firebase.js, the LoginScreen component handles it.
     return <LoginScreen />;
   }
 
@@ -568,7 +332,6 @@ export default function App() {
             <div className="bg-indigo-600 p-2 rounded-lg text-white shadow-md shadow-indigo-200 dark:shadow-none">
               <BookOpen size={20} />
             </div>
-            {/* Optimized for mobile: Visible now, just responsive text size */}
             <h1 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400 block">
               TutorTrack
             </h1>
@@ -774,126 +537,11 @@ export default function App() {
         onClose={() => setIsSessionModalOpen(false)} 
         title={editingId ? "Edit Session" : "Log New Session"}
       >
-        <form onSubmit={handleSaveSession} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Date</label>
-              <input 
-                required
-                type="date" 
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
-                value={currentSession.date}
-                onChange={e => setCurrentSession({...currentSession, date: e.target.value})}
-              />
-            </div>
-             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Batch</label>
-              <select 
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
-                value={currentSession.batchType}
-                onChange={e => setCurrentSession({...currentSession, batchType: e.target.value})}
-              >
-                <option value="Morning">Morning</option>
-                <option value="Evening">Evening</option>
-                <option value="Custom">Custom</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Start Time</label>
-              <input 
-                required
-                type="time" 
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
-                value={currentSession.startTime}
-                onChange={e => setCurrentSession({...currentSession, startTime: e.target.value})}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">End Time</label>
-              <input 
-                required
-                type="time" 
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
-                value={currentSession.endTime}
-                onChange={e => setCurrentSession({...currentSession, endTime: e.target.value})}
-              />
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
-            <div>
-              <label className="block text-xs font-semibold text-indigo-800 dark:text-indigo-300 mb-1">Rate (₹/hr)</label>
-              <input 
-                type="number" 
-                className="w-24 p-2 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 rounded text-sm focus:outline-none dark:text-white text-base"
-                value={currentSession.rate}
-                onChange={e => setCurrentSession({...currentSession, rate: parseFloat(e.target.value)})}
-              />
-            </div>
-            <div className="text-right">
-              <span className="block text-xs text-indigo-600 dark:text-indigo-400 font-medium uppercase tracking-wide">Estimated</span>
-              <span className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
-                {formatCurrency(calculateDuration(currentSession.startTime, currentSession.endTime) * currentSession.rate)}
-              </span>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-             <div className="mb-3">
-               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Subject</label>
-               <input 
-                 type="text" 
-                 placeholder="e.g. Mathematics"
-                 className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
-                 value={currentSession.subject}
-                 onChange={e => setCurrentSession({...currentSession, subject: e.target.value})}
-               />
-             </div>
-             <div className="grid grid-cols-2 gap-4 mb-3">
-               <div>
-                 <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Chapter</label>
-                 <input 
-                   type="text" 
-                   placeholder="e.g. Algebra"
-                   className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
-                   value={currentSession.chapter}
-                   onChange={e => setCurrentSession({...currentSession, chapter: e.target.value})}
-                 />
-               </div>
-               <div>
-                 <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Page Numbers</label>
-                 <input 
-                   type="text" 
-                   placeholder="e.g. 12-24"
-                   className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
-                   value={currentSession.pages}
-                   onChange={e => setCurrentSession({...currentSession, pages: e.target.value})}
-                 />
-               </div>
-             </div>
-             <div>
-               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Notes</label>
-               <textarea 
-                 rows="2"
-                 placeholder="Topics covered, student progress..."
-                 className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none dark:text-white transition-colors text-base"
-                 value={currentSession.notes}
-                 onChange={e => setCurrentSession({...currentSession, notes: e.target.value})}
-               />
-             </div>
-          </div>
-
-          <button 
-            type="submit" 
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2 text-base"
-          >
-            <Save size={20} />
-            Save Session
-          </button>
-        </form>
+        <SessionForm 
+          currentSession={currentSession} 
+          setCurrentSession={setCurrentSession} 
+          handleSaveSession={handleSaveSession} 
+        />
       </Modal>
 
       {/* Settings Modal */}
@@ -902,42 +550,11 @@ export default function App() {
         onClose={() => setIsSettingsModalOpen(false)} 
         title="Rate Settings"
       >
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Set your default hourly rates here. Changing these will only apply to future sessions.</p>
-        <form onSubmit={handleUpdateRates} className="space-y-4">
-          <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-colors">
-            <span className="font-medium text-slate-700 dark:text-slate-200">Morning Rate (₹/hr)</span>
-            <input 
-              type="number" 
-              className="w-24 p-2 border border-slate-200 dark:border-slate-600 rounded-lg text-right bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-base"
-              value={rates.morning}
-              onChange={e => setRates({...rates, morning: parseFloat(e.target.value)})}
-            />
-          </div>
-          <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-colors">
-            <span className="font-medium text-slate-700 dark:text-slate-200">Evening Rate (₹/hr)</span>
-            <input 
-              type="number" 
-              className="w-24 p-2 border border-slate-200 dark:border-slate-600 rounded-lg text-right bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-base"
-              value={rates.evening}
-              onChange={e => setRates({...rates, evening: parseFloat(e.target.value)})}
-            />
-          </div>
-          <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-colors">
-            <span className="font-medium text-slate-700 dark:text-slate-200">Custom/Default (₹/hr)</span>
-            <input 
-              type="number" 
-              className="w-24 p-2 border border-slate-200 dark:border-slate-600 rounded-lg text-right bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-base"
-              value={rates.default}
-              onChange={e => setRates({...rates, default: parseFloat(e.target.value)})}
-            />
-          </div>
-          <button 
-            type="submit" 
-            className="w-full mt-4 py-3 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-semibold transition-all active:scale-95 text-base"
-          >
-            Update Rates
-          </button>
-        </form>
+        <RateSettings 
+          rates={rates} 
+          setRates={setRates} 
+          handleUpdateRates={handleUpdateRates} 
+        />
       </Modal>
 
     </div>
