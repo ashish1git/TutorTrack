@@ -100,7 +100,7 @@ const LoginScreen = () => {
           </form>
         </div>
       </div>
-      <p className="mt-8 text-xs text-slate-100 text-center">
+      <p className="mt-8 text-black text-xs text-slate-100 text-center">
         TutorTrack v1.0 • Made By Ashish
       </p>
     </div>
