@@ -4,19 +4,16 @@ import {
   Trash2, Edit2, Search, TrendingUp, Filter, Copy, 
   Moon, Sun, AlertTriangle, LogOut 
 } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
 import { 
   collection, addDoc, updateDoc, deleteDoc, 
   doc, onSnapshot, serverTimestamp, setDoc 
 } from 'firebase/firestore';
 
-/* --- LOCAL IMPORTS ---
-   These work because you have created these files locally. 
-*/
+/* --- LOCAL IMPORTS --- */
 import { auth, db, appId } from './firebase';
 import { formatCurrency, calculateDuration, formatDate } from './utils';
 
-// Import the components you created
 import LoginScreen from './components/LoginScreen';
 import StatsCard from './components/StatsCard';
 import EarningsChart from './components/EarningsChart';
@@ -29,7 +26,10 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [rates, setRates] = useState({ morning: 150, evening: 200, default: 150 });
-  const [loading, setLoading] = useState(true);
+  
+  // New state specifically to track if we are checking authentication
+  const [authLoading, setAuthLoading] = useState(true); 
+  const [dataLoading, setDataLoading] = useState(false);
   const [dbError, setDbError] = useState(null);
 
   // UI State
@@ -74,11 +74,26 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
+    // Attempt to sign in with environment token if available
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          // If no token, we just wait for onAuthStateChanged to pick up existing session
+          // or we can sign in anonymously if that's your fallback
+           // await signInAnonymously(auth); 
+        }
+      } catch (error) {
+        console.error("Auth init error:", error);
+      }
+    };
+    initAuth();
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (!currentUser) {
-        setLoading(false); 
-      }
+      // Crucial: We only stop "authLoading" once Firebase tells us the status
+      setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -87,7 +102,7 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    setLoading(true);
+    setDataLoading(true);
 
     const ratesRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'rates');
     const unsubRates = onSnapshot(ratesRef, (docSnap) => {
@@ -111,11 +126,11 @@ export default function App() {
         return b.startTime.localeCompare(a.startTime);
       });
       setSessions(data);
-      setLoading(false);
+      setDataLoading(false);
     }, (err) => {
       console.error(err);
       if (err.code === 'permission-denied') setDbError('permission-denied');
-      setLoading(false);
+      setDataLoading(false);
     });
 
     return () => {
@@ -285,6 +300,22 @@ export default function App() {
 
   /* --- RENDER --- */
   
+  // FIX: Check authLoading FIRST. 
+  // This prevents the LoginScreen from "flashing" while we are waiting for Firebase to verify the session.
+  if (authLoading || dataLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-indigo-600">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <p className="font-medium animate-pulse">
+            {authLoading ? "Verifying..." : "Loading Your Dashboard..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Only show LoginScreen if we are sure auth check is done AND there is no user
   if (!user) {
     return <LoginScreen />;
   }
@@ -310,15 +341,6 @@ export default function App() {
       </div>
     );
   }
-
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-indigo-600">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-        <p className="font-medium animate-pulse">Loading Your Dashboard...</p>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-100 pb-20 md:pb-0 transition-colors duration-300">
