@@ -58,10 +58,10 @@ const ReportGenerator = ({ sessions }) => {
   // Share functionality (WhatsApp/Email)
   const handleShare = async () => {
     // Construct a nice text summary
-    let text = `📅 *TutorTrack Report*\n(${startDate} to ${endDate})\n\n`;
+    let text = `📅 *TutorTrack Report* -Ashish\n(${startDate} to ${endDate})\n\n`;
     text += `💰 Total Earnings: ${formatCurrency(totals.earnings)}\n`;
     text += `⏱ Total Hours: ${totals.hours.toFixed(1)} hrs\n`;
-    text += `📚 Sessions: ${totals.count}\n\n`;
+    text += `📚Total Sessions: ${totals.count}\n\n`;
     text += `*Session Details:*\n`;
     
     filteredSessions.forEach(s => {
