@@ -10,17 +10,20 @@ import {
   doc, onSnapshot, serverTimestamp, setDoc 
 } from 'firebase/firestore';
 
-// --- LOCAL IMPORTS (Crucial for your local setup) ---
+/* --- LOCAL IMPORTS ---
+   These work because you have created these files locally. 
+*/
 import { auth, db, appId } from './firebase';
 import { formatCurrency, calculateDuration, formatDate } from './utils';
 
-// Import the components you created in the 'components' folder
+// Import the components you created
 import LoginScreen from './components/LoginScreen';
 import StatsCard from './components/StatsCard';
 import EarningsChart from './components/EarningsChart';
 import Modal from './components/Modal';
 import SessionForm from './components/SessionForm';
 import RateSettings from './components/RateSettings';
+import ReportGenerator from './components/ReportGenerator';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -225,8 +228,7 @@ export default function App() {
   const stats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
-    
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); 
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
 
@@ -284,13 +286,9 @@ export default function App() {
   /* --- RENDER --- */
   
   if (!user) {
-    // In local version, 'auth' is imported from './firebase' inside LoginScreen, 
-    // or passed as prop depending on how you set up LoginScreen. 
-    // Since we exported 'auth' in firebase.js, the LoginScreen component handles it.
     return <LoginScreen />;
   }
 
-  // Permission Error Screen
   if (dbError === 'permission-denied') {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
@@ -300,7 +298,7 @@ export default function App() {
             <h2 className="text-2xl font-bold">Access Denied</h2>
           </div>
           <p className="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-            The security rules are blocking your access. Ensure you have updated the Firestore Rules in the Firebase Console as instructed.
+            The security rules are blocking your access. Ensure you have updated the Firestore Rules.
           </p>
           <button 
             onClick={() => window.location.reload()}
@@ -373,7 +371,7 @@ export default function App() {
 
       <main className="max-w-5xl mx-auto px-4 py-6">
         
-        {/* Navigation Tabs (Mobile friendly) */}
+        {/* Navigation Tabs */}
         <div className="flex gap-4 mb-6 border-b border-slate-200 dark:border-slate-800">
           <button 
             onClick={() => setActiveTab('dashboard')}
@@ -389,8 +387,16 @@ export default function App() {
             All Sessions
             {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-t-full"></div>}
           </button>
+          <button 
+            onClick={() => setActiveTab('reports')}
+            className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'reports' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+          >
+            Reports
+            {activeTab === 'reports' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-t-full"></div>}
+          </button>
         </div>
 
+        {/* --- VIEW: DASHBOARD --- */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
             {/* Quick Stats Grid */}
@@ -457,6 +463,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- VIEW: ALL SESSIONS --- */}
         {activeTab === 'history' && (
           <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
             {/* Filters */}
@@ -527,6 +534,13 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* --- VIEW: REPORTS --- */}
+        {activeTab === 'reports' && (
+          <div className="animate-in slide-in-from-right-4 duration-300">
+            <ReportGenerator sessions={sessions} />
+          </div>
+        )}
       </main>
 
       {/* --- MODALS --- */}
@@ -548,12 +562,13 @@ export default function App() {
       <Modal 
         isOpen={isSettingsModalOpen} 
         onClose={() => setIsSettingsModalOpen(false)} 
-        title="Rate Settings"
+        title="Settings"
       >
         <RateSettings 
           rates={rates} 
           setRates={setRates} 
           handleUpdateRates={handleUpdateRates} 
+          user={user}
         />
       </Modal>
 
