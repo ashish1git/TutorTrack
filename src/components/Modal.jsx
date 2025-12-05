@@ -9,7 +9,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
         <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <h2 className="text-xl font-bold text-slate-800 dark:text-white">{title}</h2>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
-            <X size={20} />
+            <X size={40} />
           </button>
         </div>
         <div className="p-5 overflow-y-auto">

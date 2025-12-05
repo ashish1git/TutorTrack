@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Calendar, IndianRupee, BookOpen, Settings, 
   Trash2, Edit2, Search, TrendingUp, Filter, Copy, 
-  Moon, Sun, AlertTriangle, LogOut 
+  Moon, Sun, AlertTriangle, LogOut, X, Clock, Layers
 } from 'lucide-react';
-import { onAuthStateChanged, signOut, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInWithCustomToken } from 'firebase/auth';
 import { 
   collection, addDoc, updateDoc, deleteDoc, 
   doc, onSnapshot, serverTimestamp, setDoc 
@@ -27,7 +27,6 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
   const [rates, setRates] = useState({ morning: 150, evening: 200, default: 150 });
   
-  // New state specifically to track if we are checking authentication
   const [authLoading, setAuthLoading] = useState(true); 
   const [dataLoading, setDataLoading] = useState(false);
   const [dbError, setDbError] = useState(null);
@@ -74,15 +73,10 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    // Attempt to sign in with environment token if available
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          // If no token, we just wait for onAuthStateChanged to pick up existing session
-          // or we can sign in anonymously if that's your fallback
-           // await signInAnonymously(auth); 
         }
       } catch (error) {
         console.error("Auth init error:", error);
@@ -92,7 +86,6 @@ export default function App() {
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      // Crucial: We only stop "authLoading" once Firebase tells us the status
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -180,7 +173,8 @@ export default function App() {
     setIsSessionModalOpen(true);
   }
 
-  const handleDeleteSession = async (id) => {
+  const handleDeleteSession = async (id, e) => {
+    e.stopPropagation(); // Prevent card click
     if(!window.confirm("Are you sure you want to delete this session?")) return;
     try {
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sessions', id));
@@ -298,10 +292,19 @@ export default function App() {
     );
   });
 
+  // Group Sessions by Month for "All Sessions" view
+  const groupedSessions = useMemo(() => {
+    const groups = {};
+    filteredSessions.forEach(session => {
+        const date = new Date(session.date);
+        const key = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(session);
+    });
+    return groups;
+  }, [filteredSessions]);
+
   /* --- RENDER --- */
-  
-  // FIX: Check authLoading FIRST. 
-  // This prevents the LoginScreen from "flashing" while we are waiting for Firebase to verify the session.
   if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-indigo-600">
@@ -315,7 +318,6 @@ export default function App() {
     );
   }
 
-  // Only show LoginScreen if we are sure auth check is done AND there is no user
   if (!user) {
     return <LoginScreen />;
   }
@@ -485,75 +487,123 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: ALL SESSIONS --- */}
+        {/* --- VIEW: ALL SESSIONS (IMPROVED) --- */}
         {activeTab === 'history' && (
-          <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+            {/* Sticky Search Bar */}
+            <div className="sticky top-[4.5rem] z-10 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-sm pb-2 pt-1 transition-colors"> 
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
                   type="text" 
                   placeholder="Search subject, chapter, or date..." 
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-colors text-base"
+                  className="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 shadow-sm transition-all text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
+                {searchQuery && (
+                    <button 
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                        <X size={14} />
+                    </button>
+                )}
               </div>
             </div>
 
-            {/* List */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden transition-colors">
-               {filteredSessions.length === 0 ? (
-                  <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-                    <Filter size={48} className="mx-auto mb-3 text-slate-200 dark:text-slate-700" />
-                    <p>No sessions found matching your search.</p>
-                  </div>
-               ) : (
-                 <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                   {filteredSessions.map(session => (
-                     <div key={session.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
-                              {session.batchType}
-                            </span>
-                            <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">{session.date}</span>
-                          </div>
-                          <h4 className="font-semibold text-slate-800 dark:text-slate-100 text-lg">{session.subject || 'Untitled Session'}</h4>
-                          <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                             {session.chapter && <span className="flex items-center gap-1"><BookOpen size={12}/> {session.chapter}</span>}
-                             {session.pages && <span className="bg-slate-100 dark:bg-slate-700 px-1.5 rounded text-xs text-slate-600 dark:text-slate-300">pg {session.pages}</span>}
-                          </p>
-                          {session.notes && (
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 italic line-clamp-1 border-l-2 border-slate-200 dark:border-slate-700 pl-2">"{session.notes}"</p>
-                          )}
-                        </div>
+            {/* Grouped Session List */}
+            {Object.keys(groupedSessions).length === 0 ? (
+               <div className="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-500 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/50 dark:bg-slate-900/50">
+                  <Filter size={48} className="mb-4 opacity-50" />
+                  <p className="font-medium">No sessions found.</p>
+                  <p className="text-xs mt-1">Try adjusting your search filters.</p>
+               </div>
+            ) : (
+               <div className="space-y-8">
+                  {Object.entries(groupedSessions).map(([month, sessionsInMonth]) => (
+                    <div key={month} className="space-y-3">
+                        {/* Month Header */}
+                        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1 sticky top-[8.5rem] z-0 mix-blend-difference">{month}</h3>
+                        
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden divide-y divide-slate-100 dark:divide-slate-700 transition-colors">
+                            {sessionsInMonth.map(session => {
+                                const sessionDate = new Date(session.date);
+                                const dayNum = sessionDate.getDate();
+                                const dayName = sessionDate.toLocaleDateString('en-US', { weekday: 'short' });
+                                
+                                // Batch Colors
+                                const batchColors = {
+                                    'Morning': 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800',
+                                    'Evening': 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800',
+                                    'Custom': 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600'
+                                };
+                                const batchStyle = batchColors[session.batchType] || batchColors['Custom'];
 
-                        <div className="flex items-center justify-between sm:justify-end gap-4 min-w-[200px]">
-                           <div className="text-right">
-                              <div className="text-xl font-bold text-slate-800 dark:text-white">{formatCurrency(session.earnings)}</div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400">
-                                {session.startTime} - {session.endTime} ({session.duration.toFixed(1)}h)
-                              </div>
-                           </div>
-                           <div className="flex gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => handleDuplicateSession(session)} className="p-3 sm:p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg active:scale-95 transition-transform" title="Duplicate">
-                                <Copy size={20} />
-                              </button>
-                              <button onClick={() => handleEditSession(session)} className="p-3 sm:p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg active:scale-95 transition-transform" title="Edit">
-                                <Edit2 size={20} />
-                              </button>
-                              <button onClick={() => handleDeleteSession(session.id)} className="p-3 sm:p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg active:scale-95 transition-transform" title="Delete">
-                                <Trash2 size={20} />
-                              </button>
-                           </div>
+                                return (
+                                    <div 
+                                        key={session.id} 
+                                        onClick={() => handleEditSession(session)}
+                                        className="group p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all cursor-pointer relative"
+                                    >
+                                        {/* Date Block */}
+                                        <div className="hidden sm:flex flex-col items-center justify-center w-14 h-14 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 shrink-0">
+                                            <span className="text-[10px] font-bold uppercase text-slate-400">{dayName}</span>
+                                            <span className="text-xl font-black leading-none">{dayNum}</span>
+                                        </div>
+
+                                        {/* Main Content */}
+                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h4 className="text-base font-bold text-slate-800 dark:text-white truncate">{session.subject || 'Untitled Session'}</h4>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${batchStyle} font-bold uppercase tracking-wide`}>
+                                                    {session.batchType}
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                                {/* Mobile Date Fallback */}
+                                                <span className="sm:hidden font-mono text-slate-400">{formatDate(session.date)} •</span>
+                                                
+                                                <span className="flex items-center gap-1">
+                                                    {session.chapter ? <><BookOpen size={12} className="opacity-70"/> {session.chapter}</> : <span className="italic opacity-50">No details</span>}
+                                                </span>
+                                                {session.pages && <span>• Pg {session.pages}</span>}
+                                            </div>
+                                            
+                                            {session.notes && (
+                                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 line-clamp-1 italic">
+                                                    "{session.notes}"
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Financials & Actions */}
+                                        <div className="flex flex-col items-end justify-center pl-2 border-l border-slate-100 dark:border-slate-700/50">
+                                            <div className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrency(session.earnings)}</div>
+                                            <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 font-medium">
+                                                <Clock size={10} />
+                                                {session.duration.toFixed(1)}h
+                                            </div>
+
+                                            {/* Hover Actions */}
+                                            <div className="absolute top-1/2 -translate-y-1/2 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all bg-white dark:bg-slate-800 shadow-lg rounded-lg p-1 border border-slate-100 dark:border-slate-700 z-10">
+                                                 <button onClick={(e) => { e.stopPropagation(); handleDuplicateSession(session); }} className="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md" title="Duplicate">
+                                                    <Copy size={16} />
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id, e); }} className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md" title="Delete">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                     </div>
-                   ))}
-                 </div>
-               )}
-            </div>
+                    </div>
+                  ))}
+               </div>
+            )}
           </div>
         )}
 
