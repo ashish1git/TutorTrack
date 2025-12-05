@@ -39,7 +39,7 @@ const ReportGenerator = ({ sessions }) => {
   const [tutorName, setTutorName] = useState('Ashish'); 
   
   // View Settings State
-  const [showNotes, setShowNotes] = useState(true);
+  const [showNotes, setShowNotes] = useState(false);
   const [tableTextSize, setTableTextSize] = useState('text-xs'); // Options: text-sm, text-xs, text-[10px]
 
   // Filter sessions based on range
@@ -287,12 +287,15 @@ const ReportGenerator = ({ sessions }) => {
 
         <div className="relative z-10">
           {/* Header */}
+          
           <div className="text-center border-b-2 border-slate-800 dark:border-slate-200 pb-4 mb-4">
-            {tutorName && <h1 className="text-2xl font-black text-slate-800 dark:text-white mb-1 uppercase tracking-wide">{tutorName}</h1>}
-            <h2 className="text-lg font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-widest">Session Log & Earning Report</h2>
+            <span className='text-3xl'>Wisdom Academy </span>
+            {tutorName && <h5 className="text-xl font-black text-slate-800 dark:text-white mb-1 uppercase tracking-wide">{tutorName}</h5>}
+            <h2 className="text-lg font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-widest">Session Log </h2>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-center gap-2">
               <span>{formatDate(startDate)}</span> 
               <span className="text-slate-300">—</span> 
+              
               <span>{formatDate(endDate)}</span>
             </p>
           </div>
@@ -337,12 +340,12 @@ const ReportGenerator = ({ sessions }) => {
           {/* Footer / Signature Area */}
           <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700 flex justify-between items-end print:flex break-inside-avoid">
              <div className="text-[9px] text-slate-400">
-               Generated via TutorTrack • {new Date().toLocaleString()}
+               Generated via TutorTrack by Ashish • {new Date().toLocaleString()}
              </div>
              <div className="text-center min-w-[120px]">
                <div className="h-10 border-b border-slate-300 dark:border-slate-600 mb-1 flex items-end justify-center pb-1">
                  {tutorName && (
-                   <span className="font-serif italic text-lg text-slate-800 dark:text-white transform -rotate-2">
+                   <span className="font-serif italic text-lg text-slate-800 dark:text-white transform -rotate-3">
                      {tutorName}
                    </span>
                  )}
