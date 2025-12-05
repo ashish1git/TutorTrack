@@ -95,10 +95,10 @@ const SessionForm = ({ currentSession, setCurrentSession, handleSaveSession }) =
 
       <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
          <div className="mb-3">
-           <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Subject</label>
+           <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Lecture/Topics</label>
            <input 
              type="text" 
-             placeholder="e.g. Mathematics"
+             placeholder="e.g. Gravitation "
              className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
              value={currentSession.subject}
              onChange={e => setCurrentSession({...currentSession, subject: e.target.value})}
@@ -106,17 +106,17 @@ const SessionForm = ({ currentSession, setCurrentSession, handleSaveSession }) =
          </div>
          <div className="grid grid-cols-2 gap-4 mb-3">
            <div>
-             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Chapter</label>
+             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Type</label>
              <input 
                type="text" 
-               placeholder="e.g. Algebra"
+               placeholder="e.g. Theory/Numerical"
                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white transition-colors text-base"
                value={currentSession.chapter}
                onChange={e => setCurrentSession({...currentSession, chapter: e.target.value})}
              />
            </div>
            <div>
-             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Page Numbers</label>
+             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Page No:</label>
              <input 
                type="text" 
                placeholder="e.g. 12-24"
@@ -143,7 +143,7 @@ const SessionForm = ({ currentSession, setCurrentSession, handleSaveSession }) =
         className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2 text-base"
       >
         <Save size={20} />
-        Save Session
+        Save Session 🫡
       </button>
     </form>
   );
